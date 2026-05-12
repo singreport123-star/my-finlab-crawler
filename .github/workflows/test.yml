@@ -1,20 +1,39 @@
-name: Run FinLab Test
+name: Auto Stock Crawler
 
 on:
-  workflow_dispatch: # 讓網頁出現「執行」按鈕
+  schedule:
+    - cron: '0 0 * * 6' # 每週六凌晨 00:00 UTC (台灣時間早上 8 點)
+  workflow_dispatch: # 允許手動點擊執行
 
 jobs:
-  run-crawler:
+  build:
     runs-on: ubuntu-latest
+    # 給予寫入權限，這樣才能把 CSV 存回 Repo
+    permissions:
+      contents: write
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run test
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Crawler
         env:
           FINLAB_TOKEN: ${{ secrets.FINLAB_TOKEN }}
         run: python main.py
+
+      - name: Commit and Push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/*.csv
+          git commit -m "Auto update inventory data $(date +'%Y-%m-%d')" || exit 0
+          git push
